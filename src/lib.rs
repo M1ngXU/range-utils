@@ -29,44 +29,44 @@ impl_primitive_basic_num!(usize, isize, u8, u16, u32, u64, u128, i8, i16, i32, i
 /// Note that this implementation is inefficient if cloning is extremely expensive.
 pub trait RangeUtil<T: Ord + Clone + BasicNum>: Sized + Clone {
     /// Start bound inclusive
-    fn from_incl(&self) -> T;
+    fn starts_at(&self) -> T;
     /// End bound inclusive
-    fn to_incl(&self) -> T;
+    fn ends_at(&self) -> T;
 
     /// Using different name to prevent name clash, this does not require `Self: RangeBound`
     fn includes(&self, x: &T) -> bool {
-        &self.from_incl() <= x && x <= &self.to_incl()
+        &self.starts_at() <= x && x <= &self.ends_at()
     }
     /// Whether two ranges intersect, e.g. `0..=3` and `1..=4` intersect while `0..=3` and `4..` don't
     ///
     /// This also works for "different ranges", e.g. `0..=3` and `2..` returns `true`
-    fn intersects<O: RangeUtil<T>>(&self, other: &O) -> bool {
-        self.to_incl() >= other.from_incl() && self.from_incl() <= other.to_incl()
+    fn intersects(&self, other: &impl RangeUtil<T>) -> bool {
+        self.ends_at() >= other.starts_at() && self.starts_at() <= other.ends_at()
     }
     /// The intersection of two ranges, e.g. `0..=3` and `1..=4` is `1..=3`
     ///
     /// This also works for "different ranges", e.g. `0..=3` and `2..` is `1..=3`
-    fn intersection<O: RangeUtil<T>>(&self, other: &O) -> Option<RangeInclusive<T>> {
+    fn intersection(&self, other: &impl RangeUtil<T>) -> Option<RangeInclusive<T>> {
         self.intersects(other)
-            .then(|| self.from_incl().max(other.from_incl())..=self.to_incl().min(other.to_incl()))
+            .then(|| self.starts_at().max(other.starts_at())..=self.ends_at().min(other.ends_at()))
     }
     /// The result of substracting `other` from `self`, e.g. `0..=3`\`1..=4` is `(0..=0, None)`
     ///
     /// If there are two sets representing the result, then the smaller range comes first. If only one range represents the result, then either result may be `None` (implementation detail, may change in the future).
     ///
     /// This also works for "different ranges", e.g. `0..=3`\`2..` is `0..=1`
-    fn setminus<O: RangeUtil<T>>(
+    fn setminus(
         &self,
-        other: &O,
+        other: &impl RangeUtil<T>,
     ) -> (Option<RangeInclusive<T>>, Option<RangeInclusive<T>>) {
         let Some(other) = self.intersection(other) else {
             return (
-                Some(self.from_incl().clone()..=self.to_incl().clone()),
+                Some(self.starts_at().clone()..=self.ends_at().clone()),
                 None,
             );
         };
-        let (a, b) = (self.from_incl().clone(), self.to_incl().clone());
-        let (c, d) = (other.start().clone(), other.to_incl().clone());
+        let (a, b) = (self.starts_at().clone(), self.ends_at().clone());
+        let (c, d) = (other.start().clone(), other.ends_at().clone());
         (
             (self.includes(&c))
                 .then(|| a..=c.dec())
@@ -78,14 +78,14 @@ pub trait RangeUtil<T: Ord + Clone + BasicNum>: Sized + Clone {
     }
 }
 impl<T: Ord + Clone + BasicNum, R: RangeBounds<T> + Clone> RangeUtil<T> for R {
-    fn from_incl(&self) -> T {
+    fn starts_at(&self) -> T {
         match self.start_bound() {
             Bound::Excluded(x) => x.inc(),
             Bound::Included(x) => x.clone(),
             Bound::Unbounded => T::MIN_VALUE,
         }
     }
-    fn to_incl(&self) -> T {
+    fn ends_at(&self) -> T {
         match self.end_bound() {
             Bound::Excluded(x) => x.dec(),
             Bound::Included(x) => x.clone(),
@@ -121,23 +121,23 @@ mod tests {
 
     #[test]
     fn test_from_incl() {
-        assert_eq!((0..).from_incl(), 0);
-        assert_eq!((0..1).from_incl(), 0);
-        assert_eq!((0..=1).from_incl(), 0);
-        assert_eq!((..=10).from_incl(), 0usize);
-        assert_eq!((..=10).from_incl(), isize::MIN);
-        assert_eq!(RangeUtil::<usize>::from_incl(&RangeFull), 0);
-        assert_eq!(RangeUtil::<isize>::from_incl(&RangeFull), isize::MIN);
+        assert_eq!((0..).starts_at(), 0);
+        assert_eq!((0..1).starts_at(), 0);
+        assert_eq!((0..=1).starts_at(), 0);
+        assert_eq!((..=10).starts_at(), 0usize);
+        assert_eq!((..=10).starts_at(), isize::MIN);
+        assert_eq!(RangeUtil::<usize>::starts_at(&RangeFull), 0);
+        assert_eq!(RangeUtil::<isize>::starts_at(&RangeFull), isize::MIN);
     }
 
     #[test]
     fn test_to_incl() {
-        assert_eq!((0..).to_incl(), usize::MAX);
-        assert_eq!((0..1).to_incl(), 0);
-        assert_eq!((0..=1).to_incl(), 1);
-        assert_eq!((..=10).to_incl(), 10);
-        assert_eq!((10..).to_incl(), isize::MAX);
-        assert_eq!(RangeUtil::<usize>::to_incl(&RangeFull), usize::MAX);
-        assert_eq!(RangeUtil::<isize>::to_incl(&RangeFull), isize::MAX);
+        assert_eq!((0..).ends_at(), usize::MAX);
+        assert_eq!((0..1).ends_at(), 0);
+        assert_eq!((0..=1).ends_at(), 1);
+        assert_eq!((..=10).ends_at(), 10);
+        assert_eq!((10..).ends_at(), isize::MAX);
+        assert_eq!(RangeUtil::<usize>::ends_at(&RangeFull), usize::MAX);
+        assert_eq!(RangeUtil::<isize>::ends_at(&RangeFull), isize::MAX);
     }
 }
