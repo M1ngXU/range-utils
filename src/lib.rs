@@ -1,4 +1,4 @@
-use std::ops::{Bound, RangeBounds, RangeInclusive};
+use std::ops::{Bound, RangeBounds, RangeInclusive, Sub};
 
 /// Basic operations (increase decrease) for numbers
 pub trait BasicNum {
@@ -33,6 +33,13 @@ pub trait RangeUtil<T: Ord + Clone + BasicNum>: Sized + Clone {
     /// End bound inclusive
     fn ends_at(&self) -> T;
 
+    /// The length of the range
+    fn len(&self) -> Option<T>
+    where
+        T: Sub<Output = T>,
+    {
+        (self.ends_at() >= self.starts_at()).then(|| self.ends_at() - self.starts_at().inc())
+    }
     /// Using different name to prevent name clash, this does not require `Self: RangeBound`
     fn includes(&self, x: &T) -> bool {
         &self.starts_at() <= x && x <= &self.ends_at()
