@@ -38,7 +38,7 @@ pub trait RangeUtil<T: Ord + Clone + BasicNum>: Sized + Clone {
     where
         T: Sub<Output = T>,
     {
-        (self.ends_at() >= self.starts_at()).then(|| self.ends_at() - self.starts_at().inc())
+        (self.ends_at() >= self.starts_at()).then(|| self.ends_at().inc() - self.starts_at())
     }
     /// Using different name to prevent name clash, this does not require `Self: RangeBound`
     fn includes(&self, x: &T) -> bool {
